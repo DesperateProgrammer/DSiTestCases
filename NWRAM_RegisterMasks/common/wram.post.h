@@ -18,6 +18,9 @@ typedef struct SWRAMPOSTRESULTS
   uint8_t        wramBankSingleSetMask[20] ;
   uint8_t        wramBankSingleClearMask[20] ;
   uint8_t        wramBankSetMask[20] ;
+  uint32_t       wramWindowSetMask[3] ;
+  uint32_t       wramWindowClearMask[3] ;
+  uint32_t       wramWindowMask[3] ;
 } SWRAMPOSTRESULTS ;
 
 void WRAMSelfTest(SWRAMPOSTRESULTS *post) ;

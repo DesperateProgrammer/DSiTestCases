@@ -21,8 +21,6 @@ void WRAMSelfTest(SWRAMPOSTRESULTS *post)
   #endif
 }
 
-#ifdef ARM9
-
 void WRAMSelfTest_RegisterMasks(SWRAMPOSTRESULTS *post) 
 {
   // Test which bits are really writeable and stick
@@ -64,6 +62,27 @@ void WRAMSelfTest_RegisterMasks(SWRAMPOSTRESULTS *post)
     // as a whole:
     ((volatile uint8_t *)0x04004040)[bank]  = 0xff ;
     post->wramBankSetMask[bank] = ((volatile uint8_t *)0x04004040)[bank]  ;
+  }
+  // 3. Check the range registers
+  for (int window = 0;window < 3;window++)
+  {
+    post->wramWindowSetMask[window] = 0 ;
+    post->wramWindowClearMask[window] = 0 ;
+    for (int bit = 0;bit < 32;bit++)
+    {
+      ((volatile uint32_t *)0x04004054)[window] = (1 << bit) ;
+      if (((volatile uint32_t *)0x04004054)[window] & (1 << bit))
+      {
+        post->wramWindowSetMask[window] |= (1 << bit) ;
+        ((volatile uint32_t *)0x04004054)[window] &= ~(1 << bit) ;
+        if (!(((volatile uint32_t *)0x04004054)[window] & (1 << bit)))
+        {
+          post->wramWindowClearMask[window] |= (1 << bit) ;
+        }
+      }
+      ((volatile uint32_t *)0x04004054)[window]  = 0xffffffff ;
+      post->wramWindowMask[window] = ((volatile uint32_t *)0x04004054)[window]  ;
+    }
   }
 }
 
@@ -146,8 +165,6 @@ void WRAMSelfTest_BankWrite(SWRAMPOSTRESULTS *post)
     foundBanks |= curPrio ;
   }
 }
-
-#endif
 
 void WRAMSelfTest_Write(SWRAMPOSTRESULTS *post) 
 {
