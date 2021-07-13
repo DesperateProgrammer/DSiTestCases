@@ -1,0 +1,169 @@
+Conclusions from running this test on Hardware:
+===============================================
+
+
+Layout:
+-------
+
+      03000000h ...         03800000 ...            03ffffff
+       ----------------------------------------------------
+      | NWRAM SET A                                        |
+       ----------------------------------------------------
+       ----------------------------------------------------
+      | NWRAM SET B                                        |
+       ----------------------------------------------------
+       ----------------------------------------------------
+      | NWRAM SET C                                        |
+       ----------------------------------------------------
+       -------------------------   ------------------------
+      | Shared old WRAM         | | Static Arm7 WRAM       |
+       -------------------------   ------------------------
+
+Priority:
+---------
+  The priority on read and write accesses is represented in the above layout
+  from top (highest) to bottom (lowest) priority.
+  
+  If a write or read operation is handled by a higher priority, nothing is
+  passed to the lower priorities. 
+  
+Windowing:
+----------
+
+  Every NWRAM Set has it's own windowing register determining in 32kB blocks
+  from which start address to which end address it is mapped. The windowing 
+  registers are indiviual per core.
+  
+  The Set A is special as it always have bit 0 of the indices set to 0. So 
+  it has an effective granularity of 64kB
+  
+  The end indices can be set to values from 000h to 3ffh, where the maximum end 
+  address is effectively limited to 03ffffff. There is no observable difference 
+  between any end index in [200h .. 3ffh]
+  
+  If the end index is less or equal the start index, the NWRAM set is not mapped
+  into the address space of the corresponding core.
+  
+Image Mirroring:
+----------------
+
+  Each NWRAM set can be set to mirror after 32kB*2^(0..3) with the exception of
+  Set A having a minimum of 64kB mirror size, even if specified smaller.
+  
+  The mirroring is independent of the windowing and is basically defining a 
+  bitmask for translating a system address to the NWRAM Set offset.
+  
+Paging:
+-------
+
+  The NWRAM Sets consist of multiple pages, which can be mapped to 32kB/64kB 
+  blocks in the NWRAM Set address space. Set A consists of 4 pages of 64kB and
+  Set B and SetC consists of 8 pages of 32kB.
+  
+  Each page can be assigned to arm7 or arm9
+  For Set B and Set C the page can also be assigned to the DSP.
+  
+Page overlapping:
+-----------------
+
+  Pages of the same can be set to overlap each other. If this is done, the
+  read operations end up reading from the page with the lowest page register 
+  address.
+  
+  Read operations are special. Writing to a memory occupied by two or more pages
+  of the same set are handled by all of those pages at once.
+  
+SCFG_EXT dependence:
+--------------------
+
+  If Bit25 in SCFG_EXT is cleared, the NWRAM is not mapped into the address
+  space of both cores. The registers at 04004040-04004063 are still accessible.
+  
+  If Bit31 in SCFG_EXT is cleared, the registers are not accessible.
+  
+Register Description:
+---------------------
+
+  04004040 Set A Page 0 Register (gbatek: MBK1[0])
+  04004041 Set A Page 1 Register (gbatek: MBK1[1])
+  04004042 Set A Page 2 Register (gbatek: MBK1[2])
+  04004043 Set A Page 3 Register (gbatek: MBK1[3])
+      Bit0:     Assign to arm9(0) or arm7(1)
+      Bit1:     Fixed 0
+      Bit2-3:   Bank index. Page is mapped to 10000h * n within Set A
+      Bit4-6:   Fixed 0
+      Bit7:     Enable
+      
+      ARM7: Read-Only, shared with ARM7
+      ARM9: Read/Write, if not protected, otherwise Read-Only
+            Shared with ARM9
+      
+        
+  04004044 Set B Page 0 Register (gbatek: MBK2[0])
+  04004045 Set B Page 1 Register (gbatek: MBK2[1])
+  04004046 Set B Page 2 Register (gbatek: MBK2[2])
+  04004047 Set B Page 3 Register (gbatek: MBK2[3])
+  04004048 Set B Page 4 Register (gbatek: MBK3[0])
+  04004049 Set B Page 5 Register (gbatek: MBK3[1])
+  0400404A Set B Page 6 Register (gbatek: MBK3[2])
+  0400404B Set B Page 7 Register (gbatek: MBK3[3])
+  0400404C Set C Page 0 Register (gbatek: MBK4[0])
+  0400404D Set C Page 1 Register (gbatek: MBK4[1])
+  0400404E Set C Page 2 Register (gbatek: MBK4[2])
+  0400404F Set C Page 3 Register (gbatek: MBK4[3])
+  04004050 Set C Page 4 Register (gbatek: MBK5[0])
+  04004051 Set C Page 5 Register (gbatek: MBK5[1])
+  04004052 Set C Page 6 Register (gbatek: MBK5[2])
+  04004053 Set C Page 7 Register (gbatek: MBK5[3])
+      Bit0-1:   Assign to arm9(0), arm7(1) or dsp(2 or 3)
+      Bit2-4:   Bank index. Page is mapped to 8000h * n within Set B/C
+      Bit5-6:   Fixed 0
+      Bit7:     Enable
+        
+      ARM7: Read-Only, shared with ARM7
+      ARM9: Read/Write, if not protected, otherwise Read-Only
+            Shared with ARM9
+  
+  
+  04004054: Set A Window and Mirror Register (gbatek: MBK6)
+  04004058: Set B Window and Mirror Register (gbatek: MBK7)
+  0400405C: Set C Window and Mirror Register (gbatek: MBK8)
+      Bit0-2:    Fixed 0
+      Bit3-11:   Start 32kB block index. For Set A, lowest bit is fixed 0
+      Bit12-13:  Mirror Size 32kb*2^n. For Set A, n is internally min 1.
+      Bit14-18:  Fixed 0
+      Bit19-28:  End 32kB block index. For Set A, lowest bit is fixed 0
+      Bit29-31:  Fixed 0
+      
+      ARM7: Read/Write, individual register to core
+      ARM9: Read/Write, individual register to core
+  
+  
+  04004060: Page Protection Register (gbatek: MBK9)
+      Bit0:      Set A Bank 0 Write Protection
+      Bit1:      Set A Bank 1 Write Protection      
+      Bit2:      Set A Bank 2 Write Protection      
+      Bit3:      Set A Bank 3 Write Protection      
+      Bit4-7:    Fixed 0
+      Bit8:      Set B Bank 0 Write Protection
+      Bit9:      Set B Bank 1 Write Protection      
+      Bit10:     Set B Bank 2 Write Protection      
+      Bit11:     Set B Bank 3 Write Protection      
+      Bit12:     Set B Bank 4 Write Protection      
+      Bit13:     Set B Bank 5 Write Protection      
+      Bit14:     Set B Bank 6 Write Protection      
+      Bit15:     Set B Bank 7 Write Protection      
+      Bit16:     Set C Bank 0 Write Protection
+      Bit17:     Set C Bank 1 Write Protection      
+      Bit18:     Set C Bank 2 Write Protection      
+      Bit19:     Set C Bank 3 Write Protection      
+      Bit20:     Set C Bank 4 Write Protection      
+      Bit21:     Set C Bank 5 Write Protection      
+      Bit22:     Set C Bank 6 Write Protection      
+      Bit23:     Set C Bank 7 Write Protection 
+      Bit24-31:  Fixed 0
+      
+      ARM7: Read/Write, shared with ARM9
+      ARM9: Read-Only, shared with ARM7
+      
+      
