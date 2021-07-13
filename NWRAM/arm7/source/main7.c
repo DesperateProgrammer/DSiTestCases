@@ -59,6 +59,16 @@ int main() {
   SWRAMPOSTRESULTS wramPostResult ;
   WRAMSelfTest(&wramPostResult) ;
   
+  /* wait for key input */
+  while (*(volatile uint16_t *)0x04000130 & 1)
+    ;
+  while (!(*(volatile uint16_t *)0x04000130 & 1))
+    ;
+  
+  *((volatile uint32_t *)0x04004008) &= ~(1 << 25) ;  
+  WaitForIPCSyncValue(1) ;
+  SetIPCSyncValue(1) ;
+  WRAMSelfTest(&wramPostResult) ;
 
   
   int count = 0 ;
